@@ -16,16 +16,30 @@ export default function RegisterPage() {
   const [bib, setBib] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    supabase
+ useEffect(() => {
+  let cancelled = false
+
+  async function loadDistricts() {
+    const { data, error } = await supabase
       .from('districts')
       .select('code,name,name_mr')
       .order('name')
-      .then(({ data, error }) => {
-        if (error) setError(error.message)
-        else setDistricts((data ?? []) as District[])
-      })
-  }, [supabase])
+
+    if (cancelled) return
+
+    if (error) {
+      setError(error.message)
+    } else {
+      setDistricts((data ?? []) as District[])
+    }
+  }
+
+  void loadDistricts()
+
+  return () => {
+    cancelled = true
+  }
+}, [supabase])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

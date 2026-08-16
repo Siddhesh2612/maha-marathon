@@ -40,10 +40,31 @@ export function AdminClient({ signedInName }: { signedInName: string }) {
     setVolunteers(payload.volunteers ?? [])
   }, [])
 
-  useEffect(() => {
-    supabase.from('districts').select('code,name').order('name').then(({ data }) => setDistricts((data ?? []) as District[]))
-    loadVolunteers()
-  }, [loadVolunteers, supabase])
+useEffect(() => {
+  let cancelled = false
+
+  async function loadDistricts() {
+    const { data, error } = await supabase
+      .from('districts')
+      .select('code,name')
+      .order('name')
+
+    if (cancelled) return
+
+    if (error) {
+      console.error('Failed to load districts:', error.message)
+      return
+    }
+
+    setDistricts((data ?? []) as District[])
+  }
+
+  void loadDistricts()
+
+  return () => {
+    cancelled = true
+  }
+}, [supabase])
 
   async function createVolunteer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
