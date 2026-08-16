@@ -24,7 +24,7 @@ This file records why major technical decisions were made during the MAHA Marath
 
 **Why:** Participant records contain personal information such as names and mobile numbers. A public dashboard only needs aggregate statistics, not raw participant data.
 
-**Implementation:** The public client calls `get_dashboard_stats()`, which returns aggregate counts only.
+**Implementation:** The dashboard client calls `get_dashboard_stats()`, which returns aggregate counts only. **Superseded for access:** ADR-013 makes that RPC authenticated-only once the dashboard became an officer portal.
 
 ## ADR-004 — Register through a controlled database function
 
@@ -44,11 +44,11 @@ This file records why major technical decisions were made during the MAHA Marath
 
 **Production improvement:** Replace the current maximum-number lookup with a dedicated district counter table when traffic/load testing shows it is required.
 
-## ADR-006 — Poll aggregate dashboard statistics every three seconds for demo
+## ADR-006 — Poll aggregate dashboard statistics for the demo
 
-**Decision:** The demo dashboard refreshes aggregate stats every 3 seconds rather than subscribing directly to the registrations table through Realtime.
+**Decision:** The demo dashboard refreshes aggregate stats every 5 seconds rather than subscribing directly to the registrations table through Realtime.
 
-**Why:** A direct Realtime subscription would normally require the browser to have row visibility. We deliberately avoid exposing participant records. Three-second polling gives the meeting the desired live-count effect without weakening privacy.
+**Why:** A direct Realtime subscription would normally require the browser to have row visibility. We deliberately avoid exposing participant records. Five-second polling gives the meeting the desired live-count effect without weakening privacy.
 
 **Production improvement:** Introduce a safe aggregate event/channel, materialized counters, or a server-side push mechanism if true sub-second updates become necessary.
 
@@ -90,10 +90,61 @@ This file records why major technical decisions were made during the MAHA Marath
 
 ## Next decisions to record
 
-- Supabase Auth invitation/login strategy for administrators and volunteers.
-- District-scoped RLS policies for volunteer participant search/check-in.
-- GoDaddy DNS/subdomain routing strategy on Vercel.
 - Master QR generation.
-- Check-in endpoint and anti-duplicate attendance rules.
 - Certificate generation/storage/verification architecture.
+- Official Maharashtra district-boundary source for production.
 - Production rate limiting, observability, backups and load testing.
+
+## ADR-012 — Guard dashboard/admin with Supabase Auth and server-side authorization
+
+**Decision:** `register` remains public. `dashboard` and `admin` require email/password authentication backed by Supabase Auth. Server Components call `getClaims()` and then read the signed-in user's `profiles` / `volunteer_permissions` row before rendering protected pages.
+
+**Why:** Hiding navigation links is not authorization. The page must refuse access even if somebody manually enters a protected URL.
+
+**Roles:**
+- `admin`: full administration + state dashboard + statewide participant search/check-in.
+- `volunteer`: district assignment plus explicit permission flags.
+
+## ADR-013 — Dashboard aggregates are authenticated-only
+
+**Decision:** Anonymous execution of `get_dashboard_stats()` is revoked. Authenticated officers/admins call the RPC after passing the page guard.
+
+**Why:** The client requirement now explicitly treats the dashboard as an officer portal. There is no reason to expose operational state statistics publicly before the department decides which statistics, if any, belong on a public page.
+
+## ADR-014 — Enforce volunteer scope in PostgreSQL functions
+
+**Decision:** Volunteer participant search and check-in are implemented through `search_participants()` and `check_in_participant()` database functions. Each function checks the caller's active profile, role, district and permission flags.
+
+**Why:** React controls are only presentation. A volunteer must not be able to bypass district restrictions by calling Supabase manually from DevTools.
+
+## ADR-015 — Create volunteer Auth users only from a server-only admin route
+
+**Decision:** `/api/admin/volunteers` uses the Supabase service-role key on the server to create volunteer Auth accounts and then writes `profiles` and `volunteer_permissions`.
+
+**Why:** The service-role key can bypass RLS and must never be shipped to browser JavaScript. Prefer the modern `SUPABASE_SECRET_KEY` (`sb_secret_...`) and keep a legacy `SUPABASE_SERVICE_ROLE_KEY` fallback only if needed. Neither is ever prefixed with `NEXT_PUBLIC_`.
+
+## ADR-016 — Use one login UI across dashboard/admin/volunteer access
+
+**Decision:** `/login` signs a user in and routes them according to their role and requested portal. Volunteers use the admin hostname and land on `/volunteer`; dashboard-authorized users may enter the state dashboard.
+
+**Why:** This keeps the three-domain requirement intact without adding an unnecessary fourth `volunteer.` subdomain for the demo.
+
+## ADR-017 — Render the Maharashtra district map as interactive SVG
+
+**Decision:** The dashboard converts a pinned Maharashtra district TopoJSON boundary dataset into browser-rendered SVG paths using `topojson-client` + `d3-geo`, then joins each shape to Supabase district counts.
+
+**Why:** SVG gives us responsive district shapes, hover state, labels and participation colouring without using a screenshot or commercial maps SDK.
+
+**Important limitation:** The demo boundary dataset is an open, non-authoritative source. It contains older district labels that the UI maps to current display names, and it represents Mumbai as one geometry while the database retains Mumbai City and Mumbai Suburban separately. Before a public Government production release, boundary geometry and naming must be validated/replaced with a department-approved official source.
+
+## ADR-018 — Keep the reference visual language, not a pixel-for-pixel asset copy
+
+**Decision:** Recreate the MAHA Event reference's information architecture and visual language: tricolour top line, Maharashtra Government header, dark-green navigation, landscape/water hero, cream background, white cards, state KPIs, map, rankings and district table.
+
+**Why:** The client already understands that interface. Reusing its structure improves demo familiarity while keeping the new app maintainable and allowing official logos/assets to be supplied later.
+
+## ADR-019 — Use Next.js 16 Proxy only for session refresh + hostname routing
+
+**Decision:** `src/proxy.ts` refreshes Supabase cookie sessions and maps the three subdomain roots to their route implementations. Fine-grained authorization remains in protected pages/API/database functions.
+
+**Why:** Proxy is useful for request routing and auth-cookie refresh, but it should not become the only security boundary.
