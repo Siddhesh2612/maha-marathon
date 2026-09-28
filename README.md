@@ -1,6 +1,6 @@
 # MAHA Marathon 2026
 
-Demo-ready Maharashtra state registration, officer dashboard, administration and district volunteer console.
+Demo-ready Maharashtra state registration, officer dashboard, administration and district volunteer console. As part of freelance work for a client. 
 
 ## Portals
 
@@ -19,8 +19,8 @@ npm run dev
 Required public environment variables:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 ```
 
 Admin-created volunteer accounts additionally require a **server-only** key:
@@ -28,8 +28,6 @@ Admin-created volunteer accounts additionally require a **server-only** key:
 ```env
 SUPABASE_SECRET_KEY=sb_secret_...
 ```
-
-Never prefix the secret key with `NEXT_PUBLIC_`, never commit `.env.local`, and never place the key in browser code.
 
 ## First admin bootstrap
 
@@ -82,4 +80,3 @@ npx vercel --prod
 
 The dashboard renders an interactive SVG in the browser from a pinned open Maharashtra district TopoJSON dataset. It maps legacy labels to current display names and aggregates the map's single Mumbai shape while keeping Mumbai City and Mumbai Suburban separate in the central database/table.
 
-For a Government production release, replace/validate this geometry against an approved official boundary source.
