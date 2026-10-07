@@ -1,82 +1,26 @@
 # MAHA Marathon 2026
 
-Demo-ready Maharashtra state registration, officer dashboard, administration and district volunteer console. As part of freelance work for a client. 
+A Next.js demo for marathon registration and event operations, built as freelance work for a client. It brings public registration, an officer dashboard, and admin and volunteer tools into one application.
 
-## Portals
+**Demo:** https://maha-marathon.vercel.app
 
-- `register.mahamarathon.co.in` → public registration
-- `dashboard.mahamarathon.co.in` → login-gated state dashboard
-- `admin.mahamarathon.co.in` → admin login; volunteers use `/volunteer`
+## What it does
 
-## Local setup
+- Registers participants and assigns district-prefixed Bib numbers through a Supabase database function.
+- Shows aggregate registration statistics and an interactive Maharashtra district map on a login-gated dashboard.
+- Uses Supabase Auth, roles, and permissions for admin and volunteer access. Admins can manage volunteer accounts; volunteers can search participants and check them in according to their permissions.
 
-```bash
-npm install
-cp .env.example .env.local
-npm run dev
-```
+## Stack
 
-Required public environment variables:
+Next.js 16, React 19, TypeScript, Supabase Auth and PostgreSQL, Vercel.
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
-```
+## Run locally
 
-Admin-created volunteer accounts additionally require a **server-only** key:
+1. Install dependencies with `npm install`.
+2. Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+3. Apply the SQL files in `supabase/migrations/` in order to a Supabase project.
+4. Run `npm run dev` and open http://localhost:3000.
 
-```env
-SUPABASE_SECRET_KEY=sb_secret_...
-```
+The admin volunteer-management route also needs `SUPABASE_SECRET_KEY` set **only on the server**. Never add that key to a `NEXT_PUBLIC_` variable or commit it to Git.
 
-## First admin bootstrap
-
-1. Supabase Dashboard → Authentication → Users → create the first administrator email/password and auto-confirm it.
-2. Copy only that user's UUID from Auth.
-3. Run in Supabase SQL Editor:
-
-```sql
-insert into public.profiles (user_id, full_name, role, district_code, active)
-values ('PASTE_AUTH_USER_UUID', 'State Administrator', 'admin', null, true)
-on conflict (user_id) do update
-set full_name = excluded.full_name,
-    role = 'admin',
-    district_code = null,
-    active = true;
-
-insert into public.volunteer_permissions (
-  user_id,
-  can_search_participants,
-  can_check_in,
-  can_view_dashboard,
-  can_manage_volunteers
-)
-values ('PASTE_AUTH_USER_UUID', true, true, true, true)
-on conflict (user_id) do update
-set can_search_participants = true,
-    can_check_in = true,
-    can_view_dashboard = true,
-    can_manage_volunteers = true,
-    updated_at = now();
-```
-
-Do not share the administrator password in chat or source control.
-
-## Vercel production variables
-
-Add the existing public variables plus the server-only secret:
-
-```bash
-npx vercel env add SUPABASE_SECRET_KEY production
-```
-
-Choose **Sensitive = yes** and paste the `sb_secret_...` key directly in your terminal prompt. Then redeploy:
-
-```bash
-npx vercel --prod
-```
-
-## Map
-
-The dashboard renders an interactive SVG in the browser from a pinned open Maharashtra district TopoJSON dataset. It maps legacy labels to current display names and aggregates the map's single Mumbai shape while keeping Mumbai City and Mumbai Suburban separate in the central database/table.
-
+This repository represents a demo. The architecture choices and remaining production work, including registration abuse controls, are recorded in [DECISIONS.md](DECISIONS.md).
